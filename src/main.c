@@ -17,6 +17,15 @@
 
 #include <dk_buttons_and_leds.h>
 
+#include <zephyr/bluetooth/bluetooth.h>
+#include <zephyr/bluetooth/hci.h>
+#include <zephyr/bluetooth/conn.h>
+#include <zephyr/bluetooth/uuid.h>
+#include <zephyr/bluetooth/gatt.h>
+
+#include <bluetooth/services/lbs.h>
+#include <zephyr/settings/settings.h>
+
 #include "rotary.h"
 
 #define NDEF_MSG_BUF_SIZE	256
