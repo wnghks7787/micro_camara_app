@@ -190,21 +190,6 @@ static void nfc_callback(void *context,
 	}
 }
 
-void display_rotary_led(int32_t rotary_val)
-{
-    if(rotary_val > 0)
-        rotary_idx++;
-    else if(rotary_val < 0)
-        rotary_idx--;
-
-    if(rotary_idx < 0)
-        rotary_idx = MAX_ROTARY_IDX - 1;
-    else if(rotary_idx > MAX_ROTARY_IDX - 1)
-        rotary_idx = 0;
-
-    led_on_idx(rotary_idx);
-}
-
 void sw_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
 {
     printk("SW pressed\n");
@@ -217,7 +202,7 @@ int main(void)
 	bool led_on = false;
 
     int blink_status = 0;
-    int bt_err;
+
 	// for error codes
 	int err;
 
@@ -225,7 +210,6 @@ int main(void)
     int rc;
     const struct device *const dev = DEVICE_DT_GET(DT_ALIAS(qdec0));
 
-	int nfc_err;
 	size_t len = sizeof(ndef_msg_buf);
 
     printk("Starting Bluetooth\n");
@@ -254,7 +238,7 @@ int main(void)
 	// bluetooth 사용으로 설정하는 과정
     err = bt_enable(NULL);
 	if (err) {
-		printk("Bluetooth init failed (err %d)\n", bt_err);
+		printk("Bluetooth init failed (err %d)\n", err);
 		return 0;
 	}
 
@@ -299,15 +283,15 @@ int main(void)
 	}
 
 	/* Configure LED-pins as outputs */
-	nfc_err = dk_leds_init();
-	if (nfc_err) {
+	err = dk_leds_init();
+	if (err) {
 		printk("Cannot init LEDs!\n");
 		goto fail;
 	}
 
 	/* Set up NFC */
-	nfc_err = nfc_t2t_setup(nfc_callback, NULL);
-	if (nfc_err) {
+	err = nfc_t2t_setup(nfc_callback, NULL);
+	if (err) {
 		printk("Cannot setup NFC T2T library!\n");
 		goto fail;
 	}
@@ -332,27 +316,27 @@ int main(void)
     led_on_idx(rotary_idx);
 
 	/* Encode launch app data  */
-	nfc_err = nfc_launchapp_msg_encode(nrf_connect_pkg_name,
+	err = nfc_launchapp_msg_encode(nrf_connect_pkg_name,
 				       sizeof(nrf_connect_pkg_name),
 				       universal_link,
 				       sizeof(universal_link),
 				       ndef_msg_buf,
 				       &len);
-	if (nfc_err) {
+	if (err) {
 		printk("Cannot encode message!\n");
 		goto fail;
 	}
 
 	/* Set created message as the NFC payload */
-	nfc_err = nfc_t2t_payload_set(ndef_msg_buf, len);
-	if (nfc_err) {
+	err = nfc_t2t_payload_set(ndef_msg_buf, len);
+	if (err) {
 		printk("Cannot set payload!\n");
 		goto fail;
 	}
 
 	/* Start sensing NFC field */
-	nfc_err = nfc_t2t_emulation_start();
-	if (nfc_err) {
+	err = nfc_t2t_emulation_start();
+	if (err) {
 		printk("Cannot start emulation!\n");
 		goto fail;
 	}
@@ -362,15 +346,9 @@ int main(void)
     while(1)
     {
         dk_set_led(RUN_STATUS_LED, (++blink_status) % 2);
-		// k_sleep(K_MSEC(RUN_LED_BLINK_INTERVAL));
         
         rc = sensor_sample_fetch(dev);
         rc = sensor_channel_get(dev, SENSOR_CHAN_ROTATION, &val);
-
-        // if(!sw_led_flag)
-        //     display_rotary_led(val.val1);
-        // else
-        //     led_off_all();
 
         k_msleep(100);
     }
@@ -382,5 +360,5 @@ fail:
 	sys_reboot(SYS_REBOOT_COLD);
 #endif /* CONFIG_REBOOT */
 
-	return nfc_err;
+	return err;
 }
