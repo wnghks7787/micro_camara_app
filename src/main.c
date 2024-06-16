@@ -56,6 +56,7 @@ static const uint8_t universal_link[] = {
 	'/'};
 
 /* Package: com.sec.android.app.camera */
+/* If you want to use Camera App with NFC, Just use this code! */
 // static const uint8_t camara_pkg_name[] = {
 // 	'c', 'o', 'm', '.', 's', 'e', 'c', '.', 'a', 'n', 'd', 'r', 'o', 'i', 'd', '.', 'a', 'p', 'p', '.', 'c', 'a', 'm', 'e', 'r', 'a'
 // };
@@ -89,8 +90,7 @@ static void bt_connected(struct bt_conn *conn, uint8_t err)
 
     printk("Connected\n");
 
-    // dk_set_led_on(CON_STATUS_LED);
-	led_on_all();
+	led_off_all();
 }
 
 static void bt_disconnected(struct bt_conn *conn, uint8_t reason)
