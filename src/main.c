@@ -1,9 +1,3 @@
-/*
- * Copyright (c) 2021 Nordic Semiconductor ASA
- *
- * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
- */
-
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
 #include <zephyr/sys/printk.h>
@@ -23,13 +17,36 @@
 #include <zephyr/bluetooth/uuid.h>
 #include <zephyr/bluetooth/gatt.h>
 
+
 #include <bluetooth/services/lbs.h>
 #include <zephyr/settings/settings.h>
 
 #include "rotary.h"
 
+// NFC
 #define NDEF_MSG_BUF_SIZE	256
 #define NFC_FIELD_LED		DK_LED1
+
+// BLUETOOTH
+#define DEVICE_NAME         CONFIG_BT_DEVICE_NAME
+#define DEVICE_NAME_LEN     (sizeof(DEVICE_NAME) - 1)
+
+#define RUN_STATUS_LED      DK_LED1
+#define CON_STATUS_LED      DK_LED2
+// #define RUN_LED_BLINK_INTERVAL 1000
+
+#define USER_BUTTON         DK_BTN1_MSK
+
+static bool app_button_state;
+
+static const struct bt_data ad[] = {
+	BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
+	BT_DATA(BT_DATA_NAME_COMPLETE, DEVICE_NAME, DEVICE_NAME_LEN),
+};
+
+static const struct bt_data sd[] = {
+	BT_DATA_BYTES(BT_DATA_UUID128_ALL, BT_UUID_LBS_VAL),
+};
 
 
 // NFC
@@ -55,6 +72,96 @@ static bool sw_led_flag = false;
 static int rotary_idx = 0;
 
 static struct gpio_callback sw_cb_data;
+
+// Bluetooth functions
+static void bt_connected(struct bt_conn *conn, uint8_t err)
+{
+    if(err)
+    {
+        printk("Connection failed (err %u)\n", err);
+        return;
+    }
+
+    printk("Connected\n");
+
+    // dk_set_led_on(CON_STATUS_LED);
+	led_on_all();
+}
+
+static void bt_disconnected(struct bt_conn *conn, uint8_t reason)
+{
+	printk("Disconnected (reason %u)\n", reason);
+
+	dk_set_led_off(CON_STATUS_LED);
+}
+
+#ifdef CONFIG_BT_LBS_SECURITY_ENABLED
+static void security_changed(struct bt_conn *conn, bt_security_t level,
+			     enum bt_security_err err)
+{
+	char addr[BT_ADDR_LE_STR_LEN];
+
+	bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
+
+	if (!err) {
+		printk("Security changed: %s level %u\n", addr, level);
+	} else {
+		printk("Security failed: %s level %u err %d\n", addr, level,
+			err);
+	}
+}
+#endif
+
+BT_CONN_CB_DEFINE(conn_callbacks) = {
+	.connected        = bt_connected,
+	.disconnected     = bt_disconnected,
+#ifdef CONFIG_BT_LBS_SECURITY_ENABLED
+	.security_changed = security_changed,
+#endif
+};
+
+static struct bt_conn_auth_cb conn_auth_callbacks;
+static struct bt_conn_auth_info_cb conn_auth_info_callbacks;
+
+#define USER_LED DK_LED3
+
+static void app_led_cb(bool led_state)
+{
+	dk_set_led(USER_LED, led_state);
+	led_all_set(led_state);
+}
+
+static bool app_button_cb(void)
+{
+	return app_button_state;
+}
+
+static struct bt_lbs_cb lbs_callbacs = {
+	.led_cb    = app_led_cb,
+	.button_cb = app_button_cb,
+};
+
+static void button_changed(uint32_t button_state, uint32_t has_changed)
+{
+	if (has_changed & USER_BUTTON) {
+		uint32_t user_button_state = button_state & USER_BUTTON;
+
+		bt_lbs_send_button_state(user_button_state);
+		app_button_state = user_button_state ? true : false;
+	}
+}
+
+static int init_button(void)
+{
+	int err;
+
+	err = dk_buttons_init(button_changed);
+	if (err) {
+		printk("Cannot init buttons (err: %d)\n", err);
+	}
+
+	return err;
+}
 
 
 static void nfc_callback(void *context,
@@ -101,6 +208,13 @@ void sw_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pi
 
 int main(void)
 {
+	bool led_on = false;
+
+    int blink_status = 0;
+    int bt_err;
+	// for error codes
+	int err;
+
     struct sensor_value val;
     int rc;
     const struct device *const dev = DEVICE_DT_GET(DT_ALIAS(qdec0));
@@ -108,9 +222,65 @@ int main(void)
 	int nfc_err;
 	size_t len = sizeof(ndef_msg_buf);
 
-	printk("Starting NFC Launch app example\n");
+    printk("Starting Bluetooth\n");
+	// 버튼 초기화(DK 내부 버튼들 사용하려고 함)
+	err = init_button();
+	if(err) {
+		printk("Button init failed (err %d)\n", err);
+		return 0;
+	}
 
-        if(!device_is_ready(dev))
+	// BLE Security 설정 여부 확인하고, 설정되어있으면 실행하는 것.
+    if (IS_ENABLED(CONFIG_BT_LBS_SECURITY_ENABLED)) {
+		err = bt_conn_auth_cb_register(&conn_auth_callbacks);
+		if (err) {
+			printk("Failed to register authorization callbacks.\n");
+			return 0;
+		}
+
+		err = bt_conn_auth_info_cb_register(&conn_auth_info_callbacks);
+		if (err) {
+			printk("Failed to register authorization info callbacks.\n");
+			return 0;
+		}
+	}
+
+	// bluetooth 사용으로 설정하는 과정
+    err = bt_enable(NULL);
+	if (err) {
+		printk("Bluetooth init failed (err %d)\n", bt_err);
+		return 0;
+	}
+
+    printk("Bluetooth initialized\n");
+
+	// setting값이 있으면 load
+    if (IS_ENABLED(CONFIG_SETTINGS)) {
+		settings_load();
+	}
+
+	// 버튼으로 LED 제어 준비
+	err = bt_lbs_init(&lbs_callbacs);
+	if (err) {
+		printk("Failed to init LBS (err:%d)\n", err);
+		return 0;
+	}
+
+	// 블루투스 Advertising
+    err = bt_le_adv_start(BT_LE_ADV_CONN, ad, ARRAY_SIZE(ad),
+			      sd, ARRAY_SIZE(sd));
+	if (err) {
+		printk("Advertising failed to start (err %d)\n", err);
+		return 0;
+	}
+
+	printk("Advertising successfully started\n");
+
+
+	// NFC 시작
+	printk("Starting NFC\n");
+
+    if(!device_is_ready(dev))
     {
         printk("Qdec device is not ready\n");
         return 0;
@@ -136,7 +306,7 @@ int main(void)
 		goto fail;
 	}
 
-    int err = gpio_pin_configure_dt(&sw, GPIO_INPUT);
+    err = gpio_pin_configure_dt(&sw, GPIO_INPUT);
     if(err < 0)
     {
         printk("Error configuring sw GPIO pin %d\n", err);
@@ -183,15 +353,18 @@ int main(void)
 
 	printk("NFC configuration done\n");
 
-        while(1)
+    while(1)
     {
+        dk_set_led(RUN_STATUS_LED, (++blink_status) % 2);
+		// k_sleep(K_MSEC(RUN_LED_BLINK_INTERVAL));
+        
         rc = sensor_sample_fetch(dev);
         rc = sensor_channel_get(dev, SENSOR_CHAN_ROTATION, &val);
 
-        if(!sw_led_flag)
-            display_rotary_led(val.val1);
-        else
-            led_off_all();
+        // if(!sw_led_flag)
+        //     display_rotary_led(val.val1);
+        // else
+        //     led_off_all();
 
         k_msleep(100);
     }

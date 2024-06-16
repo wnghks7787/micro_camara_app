@@ -171,6 +171,14 @@ void led_off_all()
     }
 }
 
+void led_on_all()
+{
+    for(int i = 0 ; i < MAX_LED_NUM ; i++)
+    {
+        led_on(led, i);
+    }
+}
+
 void led_on_idx(int idx)
 {
     // led_off_all();
@@ -185,4 +193,12 @@ void led_on_idx(int idx)
             led_off(led, i);
         }
     }
+}
+
+void led_all_set(bool led_state)
+{
+    if(led_state)
+        led_on_all();
+    else
+        led_off_all();
 }
