@@ -213,6 +213,7 @@ void sw_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pi
 
 int main(void)
 {
+	// LED(RICH SHIELD TWO )
 	bool led_on = false;
 
     int blink_status = 0;
