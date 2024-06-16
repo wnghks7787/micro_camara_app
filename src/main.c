@@ -56,8 +56,13 @@ static const uint8_t universal_link[] = {
 	'/'};
 
 /* Package: com.sec.android.app.camera */
-static const uint8_t camara_pkg_name[] = {
-	'c', 'o', 'm', '.', 's', 'e', 'c', '.', 'a', 'n', 'd', 'r', 'o', 'i', 'd', '.', 'a', 'p', 'p', '.', 'c', 'a', 'm', 'e', 'r', 'a'
+// static const uint8_t camara_pkg_name[] = {
+// 	'c', 'o', 'm', '.', 's', 'e', 'c', '.', 'a', 'n', 'd', 'r', 'o', 'i', 'd', '.', 'a', 'p', 'p', '.', 'c', 'a', 'm', 'e', 'r', 'a'
+// };
+
+/* Package: no.nordicsemi.android.mcp */
+static const uint8_t nrf_connect_pkg_name[] = {
+	'n', 'o', '.', 'n', 'o', 'r', 'd', 'i', 'c', 's', 'e', 'm', 'i', '.', 'a', 'n', 'd', 'r', 'o', 'i', 'd', '.', 'm', 'c', 'p'
 };
 /** .. include_endpoint_pkg_def_launchapp_rst */
 
@@ -326,8 +331,8 @@ int main(void)
     led_on_idx(rotary_idx);
 
 	/* Encode launch app data  */
-	nfc_err = nfc_launchapp_msg_encode(camara_pkg_name,
-				       sizeof(camara_pkg_name),
+	nfc_err = nfc_launchapp_msg_encode(nrf_connect_pkg_name,
+				       sizeof(nrf_connect_pkg_name),
 				       universal_link,
 				       sizeof(universal_link),
 				       ndef_msg_buf,

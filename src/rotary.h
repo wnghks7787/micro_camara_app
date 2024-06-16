@@ -13,5 +13,8 @@ static const struct device *const led = DEVICE_DT_GET(LED_NODE);
 
 int led_init();
 
+void led_on_all();
 void led_off_all();
 void led_on_idx(int idx);
+
+void led_all_set(bool led_state);
