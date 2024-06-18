@@ -15,6 +15,6 @@ int led_init();
 
 void led_on_all();
 void led_off_all();
-void led_on_idx(int idx);
+// void led_on_idx(int idx);
 
 void led_all_set(bool led_state);

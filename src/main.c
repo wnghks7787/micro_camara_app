@@ -75,7 +75,7 @@ static uint8_t ndef_msg_buf[NDEF_MSG_BUF_SIZE];
 static const struct gpio_dt_spec sw = GPIO_DT_SPEC_GET(SW_NODE, gpios);
 
 static bool sw_led_flag = false;
-static int rotary_idx = 0;
+// static int rotary_idx = 0;
 
 static struct gpio_callback sw_cb_data;
 
@@ -199,7 +199,7 @@ void sw_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pi
 int main(void)
 {
 	// LED(RICH SHIELD TWO )
-	bool led_on = false;
+	// bool led_on = false;
 
     int blink_status = 0;
 
@@ -313,7 +313,8 @@ int main(void)
     gpio_init_callback(&sw_cb_data, sw_callback, BIT(sw.pin));
     gpio_add_callback(sw.port, &sw_cb_data);
 
-    led_on_idx(rotary_idx);
+    // led_on_idx(rotary_idx);
+	led_off_all();
 
 	/* Encode launch app data  */
 	err = nfc_launchapp_msg_encode(nrf_connect_pkg_name,

@@ -3,6 +3,7 @@
         "hids.h": "c",
         "bluetooth.h": "c",
         "settings.h": "c",
-        "lbs.h": "c"
+        "lbs.h": "c",
+        "rotary.h": "c"
     }
 }
