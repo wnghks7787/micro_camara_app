@@ -195,6 +195,16 @@ void led_on_all()
 //     }
 // }
 
+void led_brightness(int32_t idx)
+{
+    if(idx > 100)
+        idx = 100;
+    else if(idx < 0)
+        idx = 0;
+        
+    led_set_brightness(led, 0, idx);
+}
+
 void led_all_set(bool led_state)
 {
     if(led_state)

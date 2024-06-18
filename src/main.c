@@ -75,7 +75,7 @@ static uint8_t ndef_msg_buf[NDEF_MSG_BUF_SIZE];
 static const struct gpio_dt_spec sw = GPIO_DT_SPEC_GET(SW_NODE, gpios);
 
 static bool sw_led_flag = false;
-// static int rotary_idx = 0;
+static int rotary_idx = 0;
 
 static struct gpio_callback sw_cb_data;
 
@@ -199,8 +199,7 @@ void sw_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pi
 int main(void)
 {
 	// LED(RICH SHIELD TWO )
-	// bool led_on = false;
-
+	
     int blink_status = 0;
 
 	// for error codes
@@ -344,12 +343,26 @@ int main(void)
 
 	printk("NFC configuration done\n");
 
+	int32_t rotary_value = 0;
+
     while(1)
     {
         dk_set_led(RUN_STATUS_LED, (++blink_status) % 2);
         
         rc = sensor_sample_fetch(dev);
         rc = sensor_channel_get(dev, SENSOR_CHAN_ROTATION, &val);
+
+		// if(app_button_state)
+		rotary_value += (val.val1 / 72 * 5);
+
+		if(rotary_value > 100)
+			rotary_value = 100;
+		else if(rotary_value < 0)
+			rotary_value = 0;
+		led_brightness(rotary_value);
+		// printk("rotary value: %d\n", val.val1);	
+		// else
+		// 	led_off_all();
 
         k_msleep(100);
     }
